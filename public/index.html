@@ -177,7 +177,7 @@
       
       <div class="form-group">
         <label>房间号</label>
-        <input type="text" id="roomIdInput" placeholder="输入房间号或留空创建新房间" maxlength="8" style="text-transform: uppercase;">
+        <input type="text" id="roomIdInput" placeholder="留空创建新房间，或输入房间号加入" maxlength="8" style="text-transform: uppercase;">
       </div>
       
       <div class="form-group">
@@ -346,7 +346,7 @@
     
     // 加入或创建房间
     async function joinOrCreateRoom() {
-      const roomId = document.getElementById('roomIdInput').value.trim().toUpperCase() || null;
+      const roomIdInput = document.getElementById('roomIdInput').value.trim().toUpperCase();
       const playerName = document.getElementById('playerNameInput').value.trim();
       const seat = parseInt(document.getElementById('seatSelect').value);
       
@@ -359,34 +359,52 @@
       document.getElementById('joinBtn').textContent = '连接中...';
       
       try {
-        if (roomId) {
-          // 加入现有房间
+        if (roomIdInput) {
+          // 尝试加入现有房间
           const res = await fetch(`/api/join-room`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ roomId, playerName, seat })
+            body: JSON.stringify({ roomId: roomIdInput, playerName, seat })
           });
           
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error);
           
-          currentRoom = roomId;
-          connectSocket(roomId, playerName, seat);
+          if (!res.ok) {
+            // 房间不存在，自动创建新房间
+            console.log('房间不存在，创建新房间...');
+            await createNewRoom(playerName, seat);
+            return;
+          }
+          
+          currentRoom = roomIdInput;
+          connectSocket(roomIdInput, playerName, seat);
         } else {
-          // 创建新房间
-          const res = await fetch(`/api/create-room`, {
-            method: 'POST'
-          });
-          
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error);
-          
-          currentRoom = data.roomId;
-          document.getElementById('roomIdInput').value = data.roomId;
-          connectSocket(data.roomId, playerName, seat);
+          // 房间号留空，创建新房间
+          await createNewRoom(playerName, seat);
         }
       } catch (error) {
         showToast('错误：' + error.message);
+        document.getElementById('joinBtn').disabled = false;
+        document.getElementById('joinBtn').textContent = '加入 / 创建房间';
+      }
+    }
+    
+    // 创建新房间
+    async function createNewRoom(playerName, seat) {
+      try {
+        const res = await fetch(`/api/create-room`, {
+          method: 'POST'
+        });
+        
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        
+        currentRoom = data.roomId;
+        document.getElementById('roomIdInput').value = data.roomId;
+        showToast('🎉 房间创建成功：' + data.roomId);
+        connectSocket(data.roomId, playerName, seat);
+      } catch (error) {
+        showToast('创建房间失败：' + error.message);
         document.getElementById('joinBtn').disabled = false;
         document.getElementById('joinBtn').textContent = '加入 / 创建房间';
       }
