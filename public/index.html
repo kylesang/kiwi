@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🀄 麻将计分 - 在线多人版</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container { max-width: 600px; width: 100%; }
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .logo { text-align: center; margin-bottom: 30px; }
+    .logo h1 { font-size: 2.5em; color: #667eea; margin-bottom: 10px; }
+    .logo p { color: #888; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; color: #555; margin-bottom: 8px; font-weight: 600; }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    .btn {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(102,126,234,0.4); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .divider { text-align: center; margin: 20px 0; color: #888; }
+    .status-bar {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+    .status-dot.connected { background: #4caf50; animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .player-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+    .player-card {
+      background: #f8f9fa;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      transition: all 0.3s;
+    }
+    .player-card.active { border-color: #667eea; background: #f0f0ff; }
+    .player-card.winner { border-color: #4caf50; background: #e8f5e9; }
+    .player-name { font-size: 16px; color: #555; margin-bottom: 10px; font-weight: 600; }
+    .player-score { font-size: 2.5em; font-weight: 700; color: #667eea; }
+    .player-score.positive { color: #4caf50; }
+    .player-score.negative { color: #f44336; }
+    .player-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 15px; }
+    .btn-small { padding: 10px; font-size: 14px; border-radius: 8px; }
+    .btn-add { background: #e3f2fd; color: #2196f3; }
+    .btn-sub { background: #ffebee; color: #f44336; }
+    .btn-special { background: #fff3e0; color: #ff9800; }
+    .action-bar { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-top: 20px; }
+    .btn-win { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .btn-history { background: #f5f5f5; color: #555; }
+    .btn-reset { background: #fff3e0; color: #ff9800; }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal.show { display: flex; }
+    .modal-content {
+      background: #fff;
+      border-radius: 20px;
+      padding: 30px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal-title { font-size: 1.5em; color: #333; margin-bottom: 20px; text-align: center; }
+    .hist-list { display: flex; flex-direction: column; gap: 10px; }
+    .hist-item {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+    .hist-time { font-size: 12px; color: #888; margin-bottom: 5px; }
+    .hist-detail { font-size: 14px; color: #333; }
+    .share-section { background: #f0f0ff; padding: 15px; border-radius: 10px; margin-top: 20px; }
+    .share-link {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .share-link input {
+      flex: 1;
+      padding: 10px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .btn-copy { background: #667eea; color: #fff; padding: 10px 20px; white-space: nowrap; }
+    .toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9);
+      color: #fff;
+      padding: 20px 30px;
+      border-radius: 12px;
+      font-size: 16px;
+      z-index: 2000;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 登录界面 -->
+    <div id="loginScreen" class="card">
+      <div class="logo">
+        <h1>🀄 麻将计分</h1>
+        <p>在线多人版 - 实时同步</p>
+      </div>
+      
+      <div class="form-group">
+        <label>房间号</label>
+        <input type="text" id="roomIdInput" placeholder="输入房间号或留空创建新房间" maxlength="8" style="text-transform: uppercase;">
+      </div>
+      
+      <div class="form-group">
+        <label>你的名字</label>
+        <input type="text" id="playerNameInput" placeholder="输入你的名字" maxlength="10">
+      </div>
+      
+      <div class="form-group">
+        <label>选择座位</label>
+        <select id="seatSelect">
+          <option value="0">🀄 东风 (1 号位)</option>
+          <option value="1">🀄 南风 (2 号位)</option>
+          <option value="2">🀄 西风 (3 号位)</option>
+          <option value="3">🀄 北风 (4 号位)</option>
+        </select>
+      </div>
+      
+      <button class="btn" onclick="joinOrCreateRoom()" id="joinBtn">
+        加入 / 创建房间
+      </button>
+      
+      <div class="divider">— 或 —</div>
+      
+      <button class="btn btn-history" onclick="quickStart()">
+        ⚡ 快速开始（本地单机）
+      </button>
+    </div>
+    
+    <!-- 游戏界面 -->
+    <div id="gameScreen" class="card hidden">
+      <div class="status-bar">
+        <div class="status-indicator">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">连接中...</span>
+        </div>
+        <div style="font-size: 14px; color: #888;">
+          房间：<span id="roomIdDisplay" style="color: #667eea; font-weight: 700;"></span>
+        </div>
+      </div>
+      
+      <div class="player-grid" id="playerGrid"></div>
+      
+      <div class="action-bar">
+        <button class="btn btn-win" onclick="showWinModal()">🀄 胡牌</button>
+        <button class="btn btn-history" onclick="showHistory()">📋 记录</button>
+        <button class="btn btn-reset" onclick="shareRoom()">👥 分享</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 胡牌弹窗 -->
+  <div class="modal" id="winModal">
+    <div class="modal-content">
+      <h2 class="modal-title">🀄 胡牌登记</h2>
+      
+      <div class="form-group">
+        <label>胡牌玩家</label>
+        <select id="winnerSelect"></select>
+      </div>
+      
+      <div class="form-group">
+        <label>胡牌类型</label>
+        <select id="winType" onchange="updateScorePreview()">
+          <option value="1">自摸</option>
+          <option value="2">点炮</option>
+          <option value="3">杠上花</option>
+          <option value="4">抢杠胡</option>
+          <option value="5">海底捞月</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>底分</label>
+        <select id="baseScore" onchange="updateScorePreview()">
+          <option value="1">1 分</option>
+          <option value="2" selected>2 分</option>
+          <option value="3">3 分</option>
+          <option value="5">5 分</option>
+          <option value="10">10 分</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>翻倍</label>
+        <select id="multiplier" onchange="updateScorePreview()">
+          <option value="1">x1</option>
+          <option value="2">x2</option>
+          <option value="3">x3</option>
+          <option value="4">x4</option>
+          <option value="8">x8</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>点炮玩家（仅点炮时需要）</label>
+        <select id="pointPlayer"></select>
+      </div>
+      
+      <div class="card" style="background: #f0f0ff; margin-bottom: 15px;">
+        <div style="text-align: center; color: #888; font-size: 13px;">预计得分</div>
+        <div style="text-align: center; font-size: 2em; color: #4caf50; font-weight: 700;" id="scorePreview">+6</div>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <button class="btn btn-history" onclick="closeModal('winModal')">取消</button>
+        <button class="btn btn-win" onclick="confirmWin()">确认</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 历史记录弹窗 -->
+  <div class="modal" id="historyModal">
+    <div class="modal-content">
+      <h2 class="modal-title">📋 计分记录</h2>
+      <div class="hist-list" id="historyList"></div>
+      <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <button class="btn btn-reset" onclick="resetGame()">🔄 重置</button>
+        <button class="btn btn-history" onclick="closeModal('historyModal')">关闭</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 分享弹窗 -->
+  <div class="modal" id="shareModal">
+    <div class="modal-content">
+      <h2 class="modal-title">👥 邀请好友</h2>
+      <p style="text-align: center; color: #888; margin-bottom: 20px;">分享房间号或链接邀请好友加入</p>
+      
+      <div class="form-group">
+        <label>房间号</label>
+        <div style="font-size: 2em; color: #667eea; font-weight: 700; text-align: center; letter-spacing: 3px;" id="shareRoomId">----</div>
+      </div>
+      
+      <div class="share-section">
+        <label style="font-size: 13px; color: #888;">分享链接</label>
+        <div class="share-link">
+          <input type="text" id="shareLink" readonly>
+          <button class="btn btn-copy" onclick="copyLink()">复制</button>
+        </div>
+      </div>
+      
+      <div style="margin-top: 20px;">
+        <button class="btn btn-history" onclick="closeModal('shareModal')" style="width: 100%;">关闭</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    let socket = null;
+    let currentRoom = null;
+    let currentSeat = null;
+    let players = [];
+    let round = 1;
+    let history = [];
+    
+    // 初始化
+    function init() {
+      // 检查 URL 参数
+      const params = new URLSearchParams(window.location.search);
+      const roomParam = params.get('room');
+      if (roomParam) {
+        document.getElementById('roomIdInput').value = roomParam.toUpperCase();
+      }
+    }
+    
+    // 加入或创建房间
+    async function joinOrCreateRoom() {
+      const roomId = document.getElementById('roomIdInput').value.trim().toUpperCase() || null;
+      const playerName = document.getElementById('playerNameInput').value.trim();
+      const seat = parseInt(document.getElementById('seatSelect').value);
+      
+      if (!playerName) {
+        showToast('请输入你的名字');
+        return;
+      }
+      
+      document.getElementById('joinBtn').disabled = true;
+      document.getElementById('joinBtn').textContent = '连接中...';
+      
+      try {
+        if (roomId) {
+          // 加入现有房间
+          const res = await fetch(`/api/join-room`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roomId, playerName, seat })
+          });
+          
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          
+          currentRoom = roomId;
+          connectSocket(roomId, playerName, seat);
+        } else {
+          // 创建新房间
+          const res = await fetch(`/api/create-room`, {
+            method: 'POST'
+          });
+          
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          
+          currentRoom = data.roomId;
+          document.getElementById('roomIdInput').value = data.roomId;
+          connectSocket(data.roomId, playerName, seat);
+        }
+      } catch (error) {
+        showToast('错误：' + error.message);
+        document.getElementById('joinBtn').disabled = false;
+        document.getElementById('joinBtn').textContent = '加入 / 创建房间';
+      }
+    }
+    
+    // 连接 Socket.IO
+    function connectSocket(roomId, playerName, seat) {
+      socket = io();
+      
+      socket.on('connect', () => {
+        console.log('✅ 已连接服务器');
+        document.getElementById('statusDot').classList.add('connected');
+        document.getElementById('statusText').textContent = '已连接';
+        
+        // 加入房间
+        socket.emit('join-room', { roomId, playerName, seat });
+      });
+      
+      socket.on('room-update', (data) => {
+        console.log('📦 房间更新:', data);
+        players = data.players;
+        round = data.round;
+        renderPlayers();
+        showGameScreen();
+      });
+      
+      socket.on('score-update', (data) => {
+        console.log('📊 分数更新:', data);
+        players[data.playerIndex].score = data.newScore;
+        renderPlayers();
+      });
+      
+      socket.on('win-result', (data) => {
+        console.log('🀄 胡牌结果:', data);
+        players = data.players;
+        round = data.round;
+        history.unshift(data.history);
+        renderPlayers();
+        showToast(`🀄 ${data.winner} 胡牌 +${data.score}`);
+      });
+      
+      socket.on('game-reset', (data) => {
+        console.log('🔄 游戏重置');
+        players = data.players;
+        round = data.round;
+        history = [];
+        renderPlayers();
+        showToast('游戏已重置');
+      });
+      
+      socket.on('player-left', (data) => {
+        console.log('👤 玩家离开');
+        players = data.players;
+        renderPlayers();
+        showToast('有玩家离开了');
+      });
+      
+      socket.on('disconnect', () => {
+        document.getElementById('statusDot').classList.remove('connected');
+        document.getElementById('statusText').textContent = '已断开';
+      });
+      
+      socket.on('error', (data) => {
+        showToast('错误：' + data.message);
+      });
+    }
+    
+    // 显示游戏界面
+    function showGameScreen() {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('gameScreen').classList.remove('hidden');
+      document.getElementById('roomIdDisplay').textContent = currentRoom;
+      renderPlayers();
+    }
+    
+    // 渲染玩家
+    function renderPlayers() {
+      const grid = document.getElementById('playerGrid');
+      const names = ['东', '南', '西', '北'];
+      
+      grid.innerHTML = players.map((p, i) => `
+        <div class="player-card ${p.score > 0 ? 'winner' : ''}">
+          <div class="player-name">${names[i]} - ${p.name || names[i]}</div>
+          <div class="player-score ${p.score >= 0 ? 'positive' : 'negative'}">${p.score >= 0 ? '+' : ''}${p.score}</div>
+          <div class="player-actions">
+            <button class="btn btn-small btn-add" onclick="addScore(${i}, 1)">+1</button>
+            <button class="btn btn-small btn-sub" onclick="addScore(${i}, -1)">-1</button>
+            <button class="btn btn-small btn-special" onclick="addScore(${i}, -5)">-5</button>
+          </div>
+        </div>
+      `).join('');
+      
+      // 更新胡牌弹窗的玩家选择
+      const winnerSelect = document.getElementById('winnerSelect');
+      const pointSelect = document.getElementById('pointPlayer');
+      winnerSelect.innerHTML = players.map((p, i) => 
+        `<option value="${i}">${p.name || names[i]}</option>`
+      ).join('');
+      pointSelect.innerHTML = players.map((p, i) => 
+        `<option value="${i}">${p.name || names[i]}</option>`
+      ).join('');
+    }
+    
+    // 加分
+    function addScore(index, delta) {
+      if (socket && currentRoom) {
+        socket.emit('update-score', { roomId: currentRoom, playerIndex: index, delta });
+      }
+    }
+    
+    // 显示胡牌弹窗
+    function showWinModal() {
+      document.getElementById('winModal').classList.add('show');
+      updateScorePreview();
+    }
+    
+    // 更新分数预览
+    function updateScorePreview() {
+      const baseScore = parseInt(document.getElementById('baseScore').value);
+      const multiplier = parseInt(document.getElementById('multiplier').value);
+      const winType = document.getElementById('winType').value;
+      
+      let score = baseScore * multiplier;
+      if (winType == '2') {
+        score *= 1;
+      } else {
+        score *= 3;
+      }
+      
+      document.getElementById('scorePreview').textContent = '+' + score;
+      return score;
+    }
+    
+    // 确认胡牌
+    function confirmWin() {
+      const score = updateScorePreview();
+      const winnerIndex = parseInt(document.getElementById('winnerSelect').value);
+      const winType = document.getElementById('winType').value;
+      const baseScore = parseInt(document.getElementById('baseScore').value);
+      const multiplier = parseInt(document.getElementById('multiplier').value);
+      const pointIndex = parseInt(document.getElementById('pointPlayer').value);
+      
+      if (socket && currentRoom) {
+        socket.emit('win-hand', {
+          roomId: currentRoom,
+          winnerIndex,
+          winType,
+          baseScore,
+          multiplier,
+          pointIndex
+        });
+      }
+      
+      closeModal('winModal');
+    }
+    
+    // 显示历史记录
+    function showHistory() {
+      const list = document.getElementById('historyList');
+      if (history.length === 0) {
+        list.innerHTML = '<div style="text-align:center;color:#888;padding:20px">暂无记录</div>';
+      } else {
+        list.innerHTML = history.map(h => `
+          <div class="hist-item">
+            <div class="hist-time">第${h.round}局 · ${h.time}</div>
+            <div class="hist-detail">${h.detail}</div>
+          </div>
+        `).join('');
+      }
+      document.getElementById('historyModal').classList.add('show');
+    }
+    
+    // 重置游戏
+    function resetGame() {
+      if (!confirm('确定要重置所有分数和记录吗？')) return;
+      
+      if (socket && currentRoom) {
+        socket.emit('reset-game', { roomId: currentRoom });
+      }
+      closeModal('historyModal');
+    }
+    
+    // 分享房间
+    function shareRoom() {
+      document.getElementById('shareRoomId').textContent = currentRoom;
+      const link = window.location.origin + '?room=' + currentRoom;
+      document.getElementById('shareLink').value = link;
+      document.getElementById('shareModal').classList.add('show');
+    }
+    
+    // 复制链接
+    function copyLink() {
+      const link = document.getElementById('shareLink');
+      link.select();
+      document.execCommand('copy');
+      showToast('✅ 链接已复制');
+    }
+    
+    // 关闭弹窗
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('show');
+    }
+    
+    // 提示
+    function showToast(msg) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    }
+    
+    // 快速开始（本地模式）
+    function quickStart() {
+      showToast('本地模式：数据仅保存在本机');
+      currentRoom = 'LOCAL';
+      players = [
+        { id: 0, name: '东风', score: 0, seat: 0 },
+        { id: 1, name: '南风', score: 0, seat: 1 },
+        { id: 2, name: '西风', score: 0, seat: 2 },
+        { id: 3, name: '北风', score: 0, seat: 3 }
+      ];
+      showGameScreen();
+      document.getElementById('roomIdDisplay').textContent = '本地模式';
+      document.getElementById('statusDot').classList.add('connected');
+      document.getElementById('statusText').textContent = '本地模式';
+    }
+    
+    // 初始化
+    init();
+  </script>
+</body>
+</html>
